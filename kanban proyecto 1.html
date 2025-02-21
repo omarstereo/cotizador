@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tablero Kanban</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .dragging { opacity: 0.5; }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex flex-col items-center p-6">
+    <h1 class="text-3xl font-bold mb-4">Tablero Kanban</h1>
+    <button id="addProjectBtn" class="bg-blue-500 px-4 py-2 rounded mb-4">Nuevo Proyecto</button>
+    <div id="projectsContainer" class="w-full max-w-4xl flex gap-4"></div>
+    
+    <div id="kanbanBoard" class="w-full max-w-4xl grid grid-cols-3 gap-4 mt-6">
+        <div class="kanban-column bg-gray-800 p-4 rounded" data-status="pending">
+            <h2 class="text-lg font-semibold">Pendiente</h2>
+            <div class="task-list min-h-[200px]" id="pending"></div>
+        </div>
+        <div class="kanban-column bg-gray-800 p-4 rounded" data-status="in-progress">
+            <h2 class="text-lg font-semibold">En Proceso</h2>
+            <div class="task-list min-h-[200px]" id="in-progress"></div>
+        </div>
+        <div class="kanban-column bg-gray-800 p-4 rounded" data-status="completed">
+            <h2 class="text-lg font-semibold">Completado</h2>
+            <div class="task-list min-h-[200px]" id="completed"></div>
+        </div>
+    </div>
+    
+    <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+        <div class="bg-gray-800 p-6 rounded w-96">
+            <h2 id="modalTitle" class="text-xl font-bold mb-4"></h2>
+            <input id="taskInput" type="text" placeholder="Nueva tarea" class="w-full p-2 mb-2 text-black">
+            <button id="addTaskBtn" class="bg-green-500 px-4 py-2 rounded">Agregar</button>
+            <ul id="taskList" class="mt-4"></ul>
+            <button id="closeModalBtn" class="mt-4 bg-red-500 px-4 py-2 rounded">Cerrar</button>
+        </div>
+    </div>
+    
+    <script>
+        let projects = JSON.parse(localStorage.getItem('projects')) || [];
+        let selectedProject = null;
+        const projectsContainer = document.getElementById('projectsContainer');
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modalTitle');
+        const taskList = document.getElementById('taskList');
+        
+        function saveProjects() {
+            localStorage.setItem('projects', JSON.stringify(projects));
+        }
+
+        function renderProjects() {
+            projectsContainer.innerHTML = '';
+            projects.forEach((project, index) => {
+                const projectBtn = document.createElement('button');
+                projectBtn.className = 'bg-gray-700 px-4 py-2 rounded mr-2';
+                projectBtn.textContent = project.name;
+                projectBtn.onclick = () => openModal(index);
+                projectsContainer.appendChild(projectBtn);
+            });
+        }
+
+        function openModal(index) {
+            selectedProject = index;
+            modalTitle.textContent = projects[index].name;
+            taskList.innerHTML = projects[index].tasks.map((task, i) => 
+                `<li class="bg-gray-700 p-2 mt-2 rounded">${task} <button onclick="deleteTask(${i})" class="ml-2 text-red-500">X</button></li>`
+            ).join('');
+            modal.classList.remove('hidden');
+        }
+
+        function addTask() {
+            const taskInput = document.getElementById('taskInput');
+            if (taskInput.value.trim() !== '') {
+                projects[selectedProject].tasks.push(taskInput.value.trim());
+                taskInput.value = '';
+                saveProjects();
+                openModal(selectedProject);
+            }
+        }
+
+        function deleteTask(index) {
+            projects[selectedProject].tasks.splice(index, 1);
+            saveProjects();
+            openModal(selectedProject);
+        }
+
+        document.getElementById('addProjectBtn').addEventListener('click', () => {
+            const name = prompt('Nombre del proyecto:');
+            if (name) {
+                projects.push({ name, tasks: [] });
+                saveProjects();
+                renderProjects();
+            }
+        });
+
+        document.getElementById('addTaskBtn').addEventListener('click', addTask);
+        document.getElementById('closeModalBtn').addEventListener('click', () => modal.classList.add('hidden'));
+        
+        document.querySelectorAll('.task-list').forEach(list => {
+            list.addEventListener('dragover', e => e.preventDefault());
+            list.addEventListener('drop', function(e) {
+                e.preventDefault();
+                const id = e.dataTransfer.getData('text');
+                const taskElement = document.getElementById(id);
+                this.appendChild(taskElement);
+                taskElement.classList.remove('dragging');
+            });
+        });
+
+        function createTaskElement(text) {
+            const task = document.createElement('div');
+            task.className = 'bg-blue-500 p-2 rounded mt-2 cursor-move';
+            task.textContent = text;
+            task.draggable = true;
+            task.id = 'task-' + Math.random().toString(36).substr(2, 9);
+            task.addEventListener('dragstart', e => {
+                e.dataTransfer.setData('text', task.id);
+                task.classList.add('dragging');
+            });
+            return task;
+        }
+        
+        renderProjects();
+    </script>
+</body>
+</html>
